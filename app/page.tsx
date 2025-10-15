@@ -199,8 +199,8 @@ export default function AlBazApp() {
   const [customerId] = useState("customer-1")
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null)
 
-  // SSE setup for real-time order updates
-  const { data: sseData } = useSSE(`/api/notifications/sse?role=customer&userId=${customerId}`, !!orderId)
+  const shouldUseSSE = currentPage === "tracking" && !!orderId
+  const { data: sseData } = useSSE(`/api/notifications/sse?role=customer&userId=${customerId}`, shouldUseSSE)
 
   useEffect(() => {
     if (sseData?.type === "order_updated" && sseData.order?.id === orderId) {
@@ -211,7 +211,7 @@ export default function AlBazApp() {
 
   // Fetch order details initially and periodically
   useEffect(() => {
-    if (orderId) {
+    if (orderId && currentPage === "tracking") {
       const fetchOrder = async () => {
         try {
           const response = await fetch(`/api/orders/${orderId}`)
@@ -227,7 +227,7 @@ export default function AlBazApp() {
       const interval = setInterval(fetchOrder, 5000)
       return () => clearInterval(interval)
     }
-  }, [orderId])
+  }, [orderId, currentPage])
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "customer") {
@@ -364,7 +364,7 @@ export default function AlBazApp() {
             }}
             className="flex items-center gap-2"
           >
-            <img src="/logo.png" alt="Al-baz delivery" className="h-10 w-auto" />
+            <img src="/logo.png" alt="ALBAZ FAST DELIVERY" className="h-[84px] w-auto" />
           </button>
 
           <div className="flex-1 flex items-center gap-2 bg-muted rounded-lg px-3 py-2 max-w-xs">

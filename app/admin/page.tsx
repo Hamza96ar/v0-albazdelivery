@@ -24,19 +24,34 @@ import {
   Package,
   CheckCircle2,
   Clock,
+  UserCheck,
+  UserX,
 } from "lucide-react"
-import type { Order, User as UserType } from "@/lib/types"
+import type { Order, User as UserType, RegistrationRequest } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function AdminPanel() {
   const router = useRouter()
   const { user, logout, isAuthenticated } = useAuth()
+  const { toast } = useToast()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [orders, setOrders] = useState<Order[]>([])
   const [customers, setCustomers] = useState<UserType[]>([])
   const [drivers, setDrivers] = useState<UserType[]>([])
   const [vendors, setVendors] = useState<UserType[]>([])
+  const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>([])
+  const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null)
+  const [showRequestDialog, setShowRequestDialog] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "admin") {
@@ -52,10 +67,10 @@ export default function AdminPanel() {
     }
   }, [isDarkMode])
 
-  // Fetch all data
   useEffect(() => {
     fetchOrders()
     fetchUsers()
+    fetchRegistrationRequests()
   }, [])
 
   const fetchOrders = async () => {
@@ -84,7 +99,93 @@ export default function AdminPanel() {
     }
   }
 
-  // Stats
+  const fetchRegistrationRequests = async () => {
+    try {
+      const response = await fetch("/api/admin/registration-requests")
+      const data = await response.json()
+      if (data.success) {
+        setRegistrationRequests(data.requests)
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching registration requests:", error)
+    }
+  }
+
+  const handleApproveRequest = async (requestId: string) => {
+    try {
+      const response = await fetch("/api/admin/registration-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          action: "approve",
+          adminId: user?.email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Approuvé",
+          description: "L'utilisateur a été approuvé avec succès",
+        })
+        fetchRegistrationRequests()
+        fetchUsers()
+        setShowRequestDialog(false)
+      } else {
+        toast({
+          title: "Erreur",
+          description: data.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'approuver la demande",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      const response = await fetch("/api/admin/registration-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          action: "reject",
+          adminId: user?.email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Rejeté",
+          description: "La demande a été rejetée",
+        })
+        fetchRegistrationRequests()
+        setShowRequestDialog(false)
+      } else {
+        toast({
+          title: "Erreur",
+          description: data.error,
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de rejeter la demande",
+        variant: "destructive",
+      })
+    }
+  }
+
   const totalOrders = orders.length
   const pendingOrders = orders.filter((o) => o.status === "pending").length
   const completedOrders = orders.filter((o) => o.status === "delivered").length
@@ -123,7 +224,6 @@ export default function AdminPanel() {
 
   const DashboardView = () => (
     <div className="space-y-6">
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-6">
@@ -183,7 +283,6 @@ export default function AdminPanel() {
         </Card>
       </div>
 
-      {/* User Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -225,7 +324,6 @@ export default function AdminPanel() {
         </Card>
       </div>
 
-      {/* Recent Orders */}
       <Card>
         <CardHeader>
           <CardTitle>Commandes Récentes</CardTitle>
@@ -421,17 +519,159 @@ export default function AdminPanel() {
     </div>
   )
 
+  const ApprovalsView = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Demandes d'inscription en attente</h2>
+        <Badge variant="secondary" className="text-lg px-3 py-1">
+          {registrationRequests.length} en attente
+        </Badge>
+      </div>
+
+      {registrationRequests.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <UserCheck className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground">Aucune demande en attente</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {registrationRequests.map((request) => (
+            <Card key={request.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      {request.role === "driver" ? (
+                        <Truck className="w-7 h-7 text-primary" />
+                      ) : (
+                        <Store className="w-7 h-7 text-primary" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-bold text-lg">{request.name}</p>
+                        <Badge variant="outline">{request.role === "driver" ? "Livreur" : "Vendeur"}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{request.email}</p>
+                      <p className="text-sm text-muted-foreground">{request.phone}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Demandé le {new Date(request.createdAt).toLocaleDateString("fr-DZ")}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setSelectedRequest(request)
+                      setShowRequestDialog(true)
+                    }}
+                  >
+                    Examiner
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Détails de la demande</DialogTitle>
+            <DialogDescription>Examinez les informations et approuvez ou rejetez la demande</DialogDescription>
+          </DialogHeader>
+
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">Rôle</p>
+                <p className="text-lg">{selectedRequest.role === "driver" ? "Livreur" : "Vendeur"}</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">Nom</p>
+                <p className="text-lg">{selectedRequest.name}</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">Email</p>
+                <p className="text-lg">{selectedRequest.email}</p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">Téléphone</p>
+                <p className="text-lg">{selectedRequest.phone}</p>
+              </div>
+
+              {selectedRequest.licenseNumber && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Permis de conduire</p>
+                  <p className="text-lg">{selectedRequest.licenseNumber}</p>
+                </div>
+              )}
+
+              {selectedRequest.shopType && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Type de magasin</p>
+                  <p className="text-lg">
+                    {selectedRequest.shopType === "restaurant"
+                      ? "Restaurant / Plats préparés"
+                      : selectedRequest.shopType === "grocery"
+                        ? "Épicerie"
+                        : selectedRequest.shopType === "parapharmacy"
+                          ? "Parapharmacie & Beauté"
+                          : "Boutique de cadeaux"}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => selectedRequest && handleRejectRequest(selectedRequest.id)}
+              className="flex-1"
+            >
+              <UserX className="w-4 h-4 mr-2" />
+              Rejeter
+            </Button>
+            <Button
+              onClick={() => selectedRequest && handleApproveRequest(selectedRequest.id)}
+              className="flex-1 bg-green-600 hover:bg-green-700"
+            >
+              <UserCheck className="w-4 h-4 mr-2" />
+              Approuver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="approvals" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="approvals" className="relative">
+              Approbations
+              {registrationRequests.length > 0 && (
+                <Badge className="ml-2 bg-red-500 text-white">{registrationRequests.length}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="dashboard">Tableau de Bord</TabsTrigger>
             <TabsTrigger value="customers">Clients</TabsTrigger>
             <TabsTrigger value="drivers">Livreurs</TabsTrigger>
             <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="approvals">
+            <ApprovalsView />
+          </TabsContent>
 
           <TabsContent value="dashboard">
             <DashboardView />
