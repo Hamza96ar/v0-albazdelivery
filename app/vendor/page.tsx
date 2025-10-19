@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { playSuccessSound } from "@/lib/notifications"
+import { Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -27,9 +29,6 @@ import {
   TrendingDown,
   AlertTriangle,
   Minus,
-  Sun,
-  Moon,
-  LogOut,
   BarChart3,
   DollarSign,
   ShoppingBag,
@@ -39,9 +38,12 @@ import {
 import type { InventoryProduct, Customer, Supplier, Sale, SaleItem } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
+// Import Header component
+import Header from "@/components/Header"
+
 export default function VendorERPApp() {
   const router = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, language, setLanguage } = useAuth()
   const [activeTab, setActiveTab] = useState("dashboard")
   const [isDarkMode, setIsDarkMode] = useState(false)
   const { toast } = useToast()
@@ -68,6 +70,9 @@ export default function VendorERPApp() {
     lowStockThreshold: "",
     barcode: "",
   })
+  const [productImages, setProductImages] = useState<{ [key: number]: string }>({})
+  const [showCameraDialog, setShowCameraDialog] = useState(false)
+  const [selectedProductForImage, setSelectedProductForImage] = useState<number | null>(null)
 
   // POS State
   const [posCart, setPosCart] = useState<SaleItem[]>([])
@@ -389,6 +394,15 @@ export default function VendorERPApp() {
     }
   }
 
+  const handleImageCapture = (productId: number, imageData: string) => {
+    setProductImages({ ...productImages, [productId]: imageData })
+    playSuccessSound()
+    toast({
+      title: "Image capturée",
+      description: "L'image du produit a été enregistrée avec succès",
+    })
+  }
+
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "vendor") {
       router.push("/login")
@@ -417,34 +431,7 @@ export default function VendorERPApp() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-gradient-to-r from-primary to-orange-500 text-white shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold">ERP - Gestion de Boutique</h1>
-                <p className="text-xs text-white/80">{user?.name}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20"
-                onClick={() => setIsDarkMode(!isDarkMode)}
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </Button>
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={logout}>
-                <LogOut className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
@@ -661,6 +648,16 @@ export default function VendorERPApp() {
                               }}
                             >
                               <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedProductForImage(product.id)
+                                setShowCameraDialog(true)
+                              }}
+                            >
+                              <Camera className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -1298,6 +1295,29 @@ export default function VendorERPApp() {
               Imprimer
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Capture Dialog */}
+      <Dialog open={showCameraDialog} onOpenChange={setShowCameraDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Capturez une image du produit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-center">
+              <Camera className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-4">
+                Appuyez sur le bouton ci-dessous pour capturer une image
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <Button onClick={() => setShowCameraDialog(false)} className="w-full">
+                <Camera className="w-4 h-4 mr-2" />
+                Capturer l'image
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

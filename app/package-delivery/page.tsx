@@ -6,7 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, MapPin, Package, Gift, Phone, ChevronDown, ChevronRight, Tag, CreditCard } from "lucide-react"
+import {
+  ArrowLeft,
+  MapPin,
+  Package,
+  Gift,
+  Phone,
+  ChevronDown,
+  ChevronRight,
+  Tag,
+  CreditCard,
+  Bike,
+  Truck,
+} from "lucide-react"
 
 export default function PackageDeliveryPage() {
   const router = useRouter()
@@ -15,9 +27,9 @@ export default function PackageDeliveryPage() {
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState("cash")
   const [showPaymentMethods, setShowPaymentMethods] = useState(false)
-  const [selectedTip, setSelectedTip] = useState(0)
-  const [saveTip, setSaveTip] = useState(false)
   const [showPromoCode, setShowPromoCode] = useState(false)
+  const [vehicleType, setVehicleType] = useState("motorcycle")
+  const [showVehicleOptions, setShowVehicleOptions] = useState(false)
 
   // Form state
   const [packageDescription, setPackageDescription] = useState("")
@@ -33,36 +45,51 @@ export default function PackageDeliveryPage() {
     return fr
   }
 
-  const serviceFee = 300
-  const total = serviceFee + selectedTip
+  const serviceFee = 500
+  const total = serviceFee
 
-  const tipOptions = [0, 100, 150, 300]
+  const vehicleOptions = [
+    { id: "motorcycle", name: "Moto", nameAr: "دراجة نارية", icon: Bike },
+    { id: "minitruck", name: "Mini Camion", nameAr: "شاحنة صغيرة", icon: Truck },
+    { id: "fourgon", name: "Fourgon", nameAr: "فان", icon: Truck },
+  ]
 
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b border-border shadow-sm">
         <div className="px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-muted">
-              <ArrowLeft className="w-5 h-5" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-muted">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <h1 className="text-xl font-bold text-foreground">
+                {t("checkout", "Commande de Livraison", "طلب التوصيل")}
+              </h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedLanguage(selectedLanguage === "fr" ? "ar" : "fr")}
+              className="text-xs"
+            >
+              {selectedLanguage === "fr" ? "العربية" : "Français"}
             </Button>
-            <h1 className="text-xl font-bold text-foreground">{t("checkout", "Checkout", "الدفع")}</h1>
           </div>
         </div>
       </header>
 
       <div className="px-4 py-6 space-y-6 max-w-2xl mx-auto">
-        {/* Warning Message */}
         <Card className="bg-muted border-border">
           <CardContent className="p-4">
             <div className="flex gap-3">
               <Package className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {t(
-                  "courier-warning",
-                  "Le coursier ne peut pas acheter de produits pour vous. Si vous lui demandez de le faire, la commande sera annulée",
-                  "لا يمكن للسائق شراء المنتجات نيابة عنك. إذا طلبت منه ذلك، سيتم إلغاء الطلب",
+                  "pricing-info",
+                  "Vous serez facturé 50 DZD pour chaque 5 minutes d'attente supplémentaires à votre arrivée. Le prix du service est de 500 DZD.",
+                  "سيتم فرض رسوم عليك بمبلغ 50 دج لكل 5 دقائق انتظار إضافية عند وصول السائق. سعر الخدمة هو 500 دج.",
                 )}
               </p>
             </div>
@@ -231,6 +258,57 @@ export default function PackageDeliveryPage() {
           </Card>
         </div>
 
+        <div>
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            {t("vehicle-type", "Type de véhicule", "نوع المركبة")}
+          </h2>
+
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <button
+                onClick={() => setShowVehicleOptions(!showVehicleOptions)}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="text-left">
+                  <p className="font-semibold text-foreground">
+                    {vehicleOptions.find((v) => v.id === vehicleType)?.[selectedLanguage === "ar" ? "nameAr" : "name"]}
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground transition-transform ${showVehicleOptions ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showVehicleOptions && (
+                <div className="mt-4 space-y-2">
+                  {vehicleOptions.map((vehicle) => {
+                    const VehicleIcon = vehicle.icon
+                    return (
+                      <button
+                        key={vehicle.id}
+                        onClick={() => {
+                          setVehicleType(vehicle.id)
+                          setShowVehicleOptions(false)
+                        }}
+                        className={`w-full p-3 rounded-lg border-2 text-left transition-colors flex items-center gap-3 ${
+                          vehicleType === vehicle.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <VehicleIcon className="w-5 h-5" />
+                        <p className="font-semibold text-foreground">
+                          {vehicle[selectedLanguage === "ar" ? "nameAr" : "name"]}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Delivery Options */}
         <div>
           <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
@@ -390,44 +468,6 @@ export default function PackageDeliveryPage() {
           </CardContent>
         </Card>
 
-        {/* Courier Tip */}
-        <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">
-            {t("courier-tip", "Pourboire coursier", "إكرامية السائق")}
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t("courier-gets-full", "Le coursier recevra le montant complet", "سيحصل السائق على المبلغ الكامل")}
-          </p>
-
-          <div className="flex gap-3 mb-3">
-            {tipOptions.map((tip) => (
-              <button
-                key={tip}
-                onClick={() => setSelectedTip(tip)}
-                className={`flex-1 py-3 px-4 rounded-full font-bold transition-colors ${
-                  selectedTip === tip
-                    ? "bg-yellow-400 text-gray-900"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {tip === 0 ? "0,00" : tip / 100} €
-              </button>
-            ))}
-          </div>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={saveTip}
-              onChange={(e) => setSaveTip(e.target.checked)}
-              className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-            />
-            <span className="text-sm text-foreground">
-              {t("save-tip", "Enregistrer le pourboire pour la prochaine commande", "احفظ الإكرامية للطلب القادم")}
-            </span>
-          </label>
-        </div>
-
         {/* Summary */}
         <div>
           <h2 className="text-xl font-bold text-foreground mb-4">{t("summary", "Résumé", "الملخص")}</h2>
@@ -441,12 +481,12 @@ export default function PackageDeliveryPage() {
                     <span className="text-xs text-muted-foreground">i</span>
                   </button>
                 </div>
-                <span className="font-semibold text-foreground">{(serviceFee / 100).toFixed(2)} €</span>
+                <span className="font-semibold text-foreground">{serviceFee} DZD</span>
               </div>
 
               <div className="flex justify-between text-xl font-bold pt-3 border-t border-border">
                 <span className="text-foreground">TOTAL</span>
-                <span className="text-foreground">{(total / 100).toFixed(2)} €</span>
+                <span className="text-foreground">{total} DZD</span>
               </div>
             </CardContent>
           </Card>

@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  Globe,
 } from "lucide-react"
 import type { Order } from "@/lib/types"
 import { useSSE } from "@/lib/use-sse"
@@ -31,16 +32,16 @@ import { useAuth } from "@/lib/auth-context"
 
 export default function DriverApp() {
   const router = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, language, setLanguage } = useAuth()
   const [currentView, setCurrentView] = useState<"dashboard" | "active" | "history">("dashboard")
   const [availableDeliveries, setAvailableDeliveries] = useState<Order[]>([])
   const [activeDelivery, setActiveDelivery] = useState<Order | null>(null)
   const [deliveryHistory, setDeliveryHistory] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
-  const [driverId] = useState("driver-1") // Mock driver ID
+  const [driverId] = useState("driver-1")
   const { toast } = useToast()
   const [isDarkMode, setIsDarkMode] = useState(false)
-  const { data: sseData, isConnected } = useSSE(`/api/notifications/sse?role=driver&userId=${driverId}`, true)
+  const { data: sseData, isConnected } = useSSE(`/api/notifications/sse?role=driver&userId=${driverId}`, false)
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "driver") {
@@ -158,21 +159,30 @@ export default function DriverApp() {
     return () => clearInterval(interval)
   }, [])
 
+  const t = (fr: string, ar: string) => (language === "ar" ? ar : fr)
+
   // Header Component
   const Header = () => (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-primary to-orange-500 text-white shadow-lg">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <Truck className="w-6 h-6" />
-            </div>
+            <img src="/logo.png" alt="AL-baz" className="h-10 w-auto" />
             <div>
-              <h1 className="text-lg font-bold">AL-baz Driver</h1>
+              <h1 className="text-lg font-bold">{t("AL-baz Driver", "سائق AL-baz")}</h1>
               <p className="text-xs text-white/80">{user?.name || "Driver"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={() => setLanguage(language === "fr" ? "ar" : "fr")}
+              title={language === "fr" ? "العربية" : "Français"}
+            >
+              <Globe className="w-5 h-5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

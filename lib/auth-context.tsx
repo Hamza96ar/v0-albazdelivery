@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useRouter } from "next/navigation"
 
 type UserRole = "customer" | "driver" | "vendor" | "admin"
+type Language = "fr" | "ar"
 
 interface User {
   email: string
@@ -16,6 +17,10 @@ interface AuthContextType {
   login: (email: string, password: string) => boolean
   logout: () => void
   isAuthenticated: boolean
+  language: Language
+  setLanguage: (lang: Language) => void
+  isDarkMode: boolean
+  setIsDarkMode: (isDark: boolean) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,13 +35,24 @@ const users = [
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [language, setLanguageState] = useState<Language>("fr")
+  const [isDarkMode, setIsDarkModeState] = useState(false)
   const router = useRouter()
 
-  // Load user from localStorage on mount
+  // Load user, language, and dark mode from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
+    const storedLanguage = localStorage.getItem("language") as Language | null
+    const storedDarkMode = localStorage.getItem("isDarkMode")
+
     if (storedUser) {
       setUser(JSON.parse(storedUser))
+    }
+    if (storedLanguage) {
+      setLanguageState(storedLanguage)
+    }
+    if (storedDarkMode) {
+      setIsDarkModeState(JSON.parse(storedDarkMode))
     }
   }, [])
 
@@ -68,8 +84,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login")
   }
 
+  const handleSetLanguage = (lang: Language) => {
+    setLanguageState(lang)
+    localStorage.setItem("language", lang)
+  }
+
+  const handleSetIsDarkMode = (isDark: boolean) => {
+    setIsDarkModeState(isDark)
+    localStorage.setItem("isDarkMode", JSON.stringify(isDark))
+    if (isDark) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        language,
+        setLanguage: handleSetLanguage,
+        isDarkMode,
+        setIsDarkMode: handleSetIsDarkMode,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   )
 }
 

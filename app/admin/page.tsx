@@ -20,12 +20,12 @@ import {
   LogOut,
   Sun,
   Moon,
-  Shield,
   Package,
   CheckCircle2,
   Clock,
   UserCheck,
   UserX,
+  Globe,
 } from "lucide-react"
 import type { Order, User as UserType, RegistrationRequest } from "@/lib/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -41,7 +41,7 @@ import {
 
 export default function AdminPanel() {
   const router = useRouter()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, language, setLanguage } = useAuth()
   const { toast } = useToast()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -196,15 +196,22 @@ export default function AdminPanel() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <Shield className="w-6 h-6" />
-            </div>
+            <img src="/logo.png" alt="AL-baz" className="h-10 w-auto" />
             <div>
               <h1 className="text-lg font-bold">Panneau d'Administration</h1>
               <p className="text-xs text-white/80">AL-baz Delivery</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={() => setLanguage(language === "fr" ? "ar" : "fr")}
+              title={language === "fr" ? "العربية" : "Français"}
+            >
+              <Globe className="w-5 h-5" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
