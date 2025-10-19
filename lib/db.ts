@@ -10,6 +10,18 @@ import type {
   Customer,
   Supplier,
   Sale,
+  Payment,
+  PaymentStatus,
+  Wallet,
+  WalletTransaction,
+  Refund,
+  LoyaltyAccount,
+  LoyaltyTransaction,
+  LoyaltyReward,
+  CustomerRedemption,
+  VendorReview,
+  VendorPerformance,
+  VendorResponse,
 } from "./types"
 
 // In-memory database (replace with real database in production)
@@ -24,6 +36,17 @@ class Database {
   private customers: Map<string, Customer> = new Map()
   private suppliers: Map<number, Supplier> = new Map()
   private sales: Map<string, Sale> = new Map()
+  private payments: Map<string, Payment> = new Map()
+  private wallets: Map<string, Wallet> = new Map()
+  private walletTransactions: Map<string, WalletTransaction> = new Map()
+  private refunds: Map<string, Refund> = new Map()
+  private loyaltyAccounts: Map<string, LoyaltyAccount> = new Map()
+  private loyaltyTransactions: Map<string, LoyaltyTransaction> = new Map()
+  private loyaltyRewards: Map<string, LoyaltyReward> = new Map()
+  private customerRedemptions: Map<string, CustomerRedemption> = new Map()
+  private vendorReviews: Map<string, VendorReview> = new Map()
+  private vendorPerformance: Map<string, VendorPerformance> = new Map()
+  private vendorResponses: Map<string, VendorResponse> = new Map()
 
   // Orders
   createOrder(order: Order): Order {
@@ -413,6 +436,241 @@ class Database {
       }))
       .sort((a, b) => b.totalSold - a.totalSold)
       .slice(0, limit)
+  }
+
+  // Payments
+  createPayment(payment: Payment): Payment {
+    this.payments.set(payment.id, payment)
+    return payment
+  }
+
+  getPayment(id: string): Payment | undefined {
+    return this.payments.get(id)
+  }
+
+  getPaymentsByCustomer(customerId: string): Payment[] {
+    return Array.from(this.payments.values()).filter((p) => p.customerId === customerId)
+  }
+
+  getPaymentsByOrder(orderId: string): Payment | undefined {
+    return Array.from(this.payments.values()).find((p) => p.orderId === orderId)
+  }
+
+  updatePaymentStatus(id: string, status: PaymentStatus): Payment | undefined {
+    const payment = this.payments.get(id)
+    if (!payment) return undefined
+    payment.status = status
+    if (status === "completed") payment.completedAt = new Date()
+    this.payments.set(id, payment)
+    return payment
+  }
+
+  // Wallets
+  createWallet(wallet: Wallet): Wallet {
+    this.wallets.set(wallet.id, wallet)
+    return wallet
+  }
+
+  getWallet(customerId: string): Wallet | undefined {
+    return Array.from(this.wallets.values()).find((w) => w.customerId === customerId)
+  }
+
+  updateWalletBalance(customerId: string, amount: number): Wallet | undefined {
+    const wallet = Array.from(this.wallets.values()).find((w) => w.customerId === customerId)
+    if (!wallet) return undefined
+    wallet.balance += amount
+    if (amount > 0) wallet.totalEarned += amount
+    wallet.totalSpent += Math.abs(amount)
+    wallet.updatedAt = new Date()
+    this.wallets.set(wallet.id, wallet)
+    return wallet
+  }
+
+  // Wallet Transactions
+  createWalletTransaction(transaction: WalletTransaction): WalletTransaction {
+    this.walletTransactions.set(transaction.id, transaction)
+    return transaction
+  }
+
+  getWalletTransactions(walletId: string): WalletTransaction[] {
+    return Array.from(this.walletTransactions.values()).filter((t) => t.walletId === walletId)
+  }
+
+  // Refunds
+  createRefund(refund: Refund): Refund {
+    this.refunds.set(refund.id, refund)
+    return refund
+  }
+
+  getRefund(id: string): Refund | undefined {
+    return this.refunds.get(id)
+  }
+
+  getRefundsByCustomer(customerId: string): Refund[] {
+    return Array.from(this.refunds.values()).filter((r) => {
+      const payment = this.payments.get(r.paymentId)
+      return payment?.customerId === customerId
+    })
+  }
+
+  updateRefundStatus(id: string, status: "pending" | "approved" | "rejected" | "completed"): Refund | undefined {
+    const refund = this.refunds.get(id)
+    if (!refund) return undefined
+    refund.status = status
+    if (status === "completed") refund.processedAt = new Date()
+    this.refunds.set(id, refund)
+    return refund
+  }
+
+  // Loyalty Accounts
+  createLoyaltyAccount(account: LoyaltyAccount): LoyaltyAccount {
+    this.loyaltyAccounts.set(account.id, account)
+    return account
+  }
+
+  getLoyaltyAccount(customerId: string): LoyaltyAccount | undefined {
+    return Array.from(this.loyaltyAccounts.values()).find((a) => a.customerId === customerId)
+  }
+
+  updateLoyaltyPoints(customerId: string, points: number): LoyaltyAccount | undefined {
+    const account = Array.from(this.loyaltyAccounts.values()).find((a) => a.customerId === customerId)
+    if (!account) return undefined
+
+    account.points += points
+    if (points > 0) account.totalPointsEarned += points
+    if (points < 0) account.totalPointsRedeemed += Math.abs(points)
+    account.updatedAt = new Date()
+
+    // Update tier based on points
+    if (account.points >= 5000) account.tier = "platinum"
+    else if (account.points >= 3000) account.tier = "gold"
+    else if (account.points >= 1000) account.tier = "silver"
+    else account.tier = "bronze"
+
+    this.loyaltyAccounts.set(account.id, account)
+    return account
+  }
+
+  // Loyalty Transactions
+  createLoyaltyTransaction(transaction: LoyaltyTransaction): LoyaltyTransaction {
+    this.loyaltyTransactions.set(transaction.id, transaction)
+    return transaction
+  }
+
+  getLoyaltyTransactions(loyaltyAccountId: string): LoyaltyTransaction[] {
+    return Array.from(this.loyaltyTransactions.values()).filter((t) => t.loyaltyAccountId === loyaltyAccountId)
+  }
+
+  // Loyalty Rewards
+  createLoyaltyReward(reward: LoyaltyReward): LoyaltyReward {
+    this.loyaltyRewards.set(reward.id, reward)
+    return reward
+  }
+
+  getAllLoyaltyRewards(): LoyaltyReward[] {
+    return Array.from(this.loyaltyRewards.values()).filter((r) => r.expiresAt > new Date())
+  }
+
+  // Customer Redemptions
+  createCustomerRedemption(redemption: CustomerRedemption): CustomerRedemption {
+    this.customerRedemptions.set(redemption.id, redemption)
+    return redemption
+  }
+
+  getCustomerRedemptions(customerId: string): CustomerRedemption[] {
+    return Array.from(this.customerRedemptions.values()).filter((r) => r.customerId === customerId)
+  }
+
+  updateRedemptionStatus(id: string, status: "active" | "used" | "expired"): CustomerRedemption | undefined {
+    const redemption = this.customerRedemptions.get(id)
+    if (!redemption) return undefined
+    redemption.status = status
+    if (status === "used") redemption.usedAt = new Date()
+    this.customerRedemptions.set(id, redemption)
+    return redemption
+  }
+
+  // Vendor Reviews
+  createVendorReview(review: VendorReview): VendorReview {
+    this.vendorReviews.set(review.id, review)
+    this.updateVendorPerformance(review.vendorId)
+    return review
+  }
+
+  getVendorReviews(vendorId: string): VendorReview[] {
+    return Array.from(this.vendorReviews.values()).filter((r) => r.vendorId === vendorId)
+  }
+
+  getReview(id: string): VendorReview | undefined {
+    return this.vendorReviews.get(id)
+  }
+
+  updateReviewHelpful(id: string, helpful: boolean): VendorReview | undefined {
+    const review = this.vendorReviews.get(id)
+    if (!review) return undefined
+    if (helpful) review.helpful += 1
+    else review.unhelpful += 1
+    this.vendorReviews.set(id, review)
+    return review
+  }
+
+  // Vendor Performance
+  getVendorPerformance(vendorId: string): VendorPerformance | undefined {
+    return this.vendorPerformance.get(vendorId)
+  }
+
+  updateVendorPerformance(vendorId: string): VendorPerformance | undefined {
+    const reviews = this.getVendorReviews(vendorId)
+    if (reviews.length === 0) return undefined
+
+    const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    const avgFoodQuality = reviews.reduce((sum, r) => sum + r.foodQuality, 0) / reviews.length
+    const avgDeliveryTime = reviews.reduce((sum, r) => sum + r.deliveryTime, 0) / reviews.length
+    const avgCustomerService = reviews.reduce((sum, r) => sum + r.customerService, 0) / reviews.length
+
+    const badges: string[] = []
+    if (avgRating >= 4.5) badges.push("top_rated")
+    if (avgDeliveryTime >= 4.0) badges.push("fast_delivery")
+    if (avgCustomerService >= 4.5) badges.push("excellent_service")
+
+    let tier: "bronze" | "silver" | "gold" | "platinum" = "bronze"
+    if (reviews.length >= 100 && avgRating >= 4.7) tier = "platinum"
+    else if (reviews.length >= 50 && avgRating >= 4.5) tier = "gold"
+    else if (reviews.length >= 20 && avgRating >= 4.3) tier = "silver"
+
+    const performance: VendorPerformance = {
+      vendorId,
+      totalReviews: reviews.length,
+      averageRating: avgRating,
+      foodQualityRating: avgFoodQuality,
+      deliveryTimeRating: avgDeliveryTime,
+      customerServiceRating: avgCustomerService,
+      responseRate: 85,
+      responseTime: 2,
+      badges,
+      tier,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    this.vendorPerformance.set(vendorId, performance)
+    return performance
+  }
+
+  getTopRatedVendors(limit = 10): VendorPerformance[] {
+    return Array.from(this.vendorPerformance.values())
+      .sort((a, b) => b.averageRating - a.averageRating)
+      .slice(0, limit)
+  }
+
+  // Vendor Responses
+  createVendorResponse(response: VendorResponse): VendorResponse {
+    this.vendorResponses.set(response.id, response)
+    return response
+  }
+
+  getReviewResponses(reviewId: string): VendorResponse[] {
+    return Array.from(this.vendorResponses.values()).filter((r) => r.reviewId === reviewId)
   }
 }
 

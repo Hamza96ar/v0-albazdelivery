@@ -12,6 +12,11 @@ export type OrderStatus =
 
 export type ApprovalStatus = "pending" | "approved" | "rejected"
 
+export type PaymentMethod = "cash" | "card" | "wallet"
+export type PaymentStatus = "pending" | "completed" | "failed" | "refunded"
+
+export type MembershipTier = "bronze" | "silver" | "gold" | "platinum"
+
 export interface User {
   id: string
   name: string
@@ -179,4 +184,133 @@ export interface ProductBundle {
   products: number[]
   frequency: number
   suggestedDiscount: number
+}
+
+export interface Payment {
+  id: string
+  orderId: string
+  customerId: string
+  amount: number
+  method: PaymentMethod
+  status: PaymentStatus
+  transactionId?: string
+  createdAt: Date
+  completedAt?: Date
+}
+
+export interface Wallet {
+  id: string
+  customerId: string
+  balance: number
+  totalSpent: number
+  totalEarned: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WalletTransaction {
+  id: string
+  walletId: string
+  type: "credit" | "debit"
+  amount: number
+  description: string
+  relatedOrderId?: string
+  createdAt: Date
+}
+
+export interface Refund {
+  id: string
+  paymentId: string
+  orderId: string
+  amount: number
+  reason: string
+  status: "pending" | "approved" | "rejected" | "completed"
+  createdAt: Date
+  processedAt?: Date
+}
+
+export interface LoyaltyAccount {
+  id: string
+  customerId: string
+  points: number
+  totalPointsEarned: number
+  totalPointsRedeemed: number
+  tier: MembershipTier
+  tierExpiresAt?: Date
+  referralCode: string
+  referralCount: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface LoyaltyTransaction {
+  id: string
+  loyaltyAccountId: string
+  type: "earn" | "redeem"
+  points: number
+  description: string
+  relatedOrderId?: string
+  createdAt: Date
+}
+
+export interface LoyaltyReward {
+  id: string
+  name: string
+  description: string
+  pointsCost: number
+  discount: number
+  expiresAt: Date
+  category: "discount" | "free_item" | "bonus_points"
+  createdAt: Date
+}
+
+export interface CustomerRedemption {
+  id: string
+  customerId: string
+  rewardId: string
+  status: "active" | "used" | "expired"
+  redeemedAt?: Date
+  usedAt?: Date
+  expiresAt: Date
+  createdAt: Date
+}
+
+export interface VendorReview {
+  id: string
+  vendorId: string
+  customerId: string
+  orderId: string
+  rating: number // 1-5
+  foodQuality: number // 1-5
+  deliveryTime: number // 1-5
+  customerService: number // 1-5
+  comment: string
+  photos?: string[]
+  helpful: number
+  unhelpful: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface VendorPerformance {
+  vendorId: string
+  totalReviews: number
+  averageRating: number
+  foodQualityRating: number
+  deliveryTimeRating: number
+  customerServiceRating: number
+  responseRate: number
+  responseTime: number // in hours
+  badges: string[] // "top_rated", "fast_delivery", "excellent_service"
+  tier: "bronze" | "silver" | "gold" | "platinum"
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface VendorResponse {
+  id: string
+  reviewId: string
+  vendorId: string
+  response: string
+  createdAt: Date
 }
