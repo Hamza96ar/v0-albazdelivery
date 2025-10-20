@@ -42,6 +42,84 @@ export default function DriverApp() {
   const { toast } = useToast()
   const [isDarkMode, setIsDarkMode] = useState(false)
   const { data: sseData, isConnected } = useSSE(`/api/notifications/sse?role=driver&userId=${driverId}`, false)
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [isTrackingLocation, setIsTrackingLocation] = useState(false)
+
+  const startLocationTracking = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Erreur",
+        description: "La géolocalisation n'est pas disponible",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsTrackingLocation(true)
+
+    // Get initial location
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy, heading, speed } = position.coords
+        setDriverLocation({ lat: latitude, lng: longitude })
+
+        // Send location to server
+        fetch("/api/driver/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            driverId,
+            latitude,
+            longitude,
+            accuracy,
+            heading: heading || 0,
+            speed: speed || 0,
+          }),
+        }).catch((error) => console.error("[v0] Error sending location:", error))
+      },
+      (error) => {
+        console.error("[v0] Geolocation error:", error)
+        toast({
+          title: "Erreur de géolocalisation",
+          description: "Impossible d'accéder à votre position",
+          variant: "destructive",
+        })
+      },
+    )
+
+    // Watch position for continuous tracking
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy, heading, speed } = position.coords
+        setDriverLocation({ lat: latitude, lng: longitude })
+
+        // Send location to server every 10 seconds
+        fetch("/api/driver/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            driverId,
+            latitude,
+            longitude,
+            accuracy,
+            heading: heading || 0,
+            speed: speed || 0,
+          }),
+        }).catch((error) => console.error("[v0] Error sending location:", error))
+      },
+      (error) => console.error("[v0] Watch position error:", error),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      },
+    )
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+      setIsTrackingLocation(false)
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "driver") {
@@ -147,6 +225,7 @@ export default function DriverApp() {
 
   // Initial load
   useEffect(() => {
+    const stopTracking = startLocationTracking()
     fetchAvailableDeliveries()
     fetchActiveDelivery()
 
@@ -156,8 +235,11 @@ export default function DriverApp() {
       fetchActiveDelivery()
     }, 5000)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      if (stopTracking) stopTracking()
+      clearInterval(interval)
+    }
+  }, [driverId])
 
   const t = (fr: string, ar: string) => (language === "ar" ? ar : fr)
 

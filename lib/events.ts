@@ -1,5 +1,14 @@
-// Simple event emitter for real-time notifications
-type EventType = "order_created" | "order_updated" | "order_assigned" | "order_delivered"
+type EventType =
+  | "order_created"
+  | "order_updated"
+  | "order_assigned"
+  | "order_delivered"
+  | "delivery_created"
+  | "delivery_updated"
+  | "driver_location_updated"
+  | "notification_sent"
+  | "payment_processed"
+  | "loyalty_points_earned"
 
 type EventListener = (data: any) => void
 
@@ -43,10 +52,8 @@ class EventEmitter {
   }
 }
 
-// Singleton instance
 export const eventEmitter = new EventEmitter()
 
-// Helper functions to emit common events
 export function emitOrderCreated(order: any) {
   eventEmitter.emit("order_created", { order, timestamp: new Date() })
 }
@@ -61,4 +68,28 @@ export function emitOrderAssigned(order: any, driverId: string) {
 
 export function emitOrderDelivered(order: any) {
   eventEmitter.emit("order_delivered", { order, timestamp: new Date() })
+}
+
+export function emitDeliveryCreated(delivery: any) {
+  eventEmitter.emit("delivery_created", { delivery, timestamp: new Date() })
+}
+
+export function emitDeliveryUpdated(delivery: any) {
+  eventEmitter.emit("delivery_updated", { delivery, timestamp: new Date() })
+}
+
+export function emitDriverLocationUpdated(driverId: string, location: { lat: number; lng: number }) {
+  eventEmitter.emit("driver_location_updated", { driverId, location, timestamp: new Date() })
+}
+
+export function emitNotificationSent(notification: any) {
+  eventEmitter.emit("notification_sent", { notification, timestamp: new Date() })
+}
+
+export function emitPaymentProcessed(payment: any) {
+  eventEmitter.emit("payment_processed", { payment, timestamp: new Date() })
+}
+
+export function emitLoyaltyPointsEarned(customerId: string, points: number) {
+  eventEmitter.emit("loyalty_points_earned", { customerId, points, timestamp: new Date() })
 }

@@ -30,6 +30,8 @@ export default function PackageDeliveryPage() {
   const [showPromoCode, setShowPromoCode] = useState(false)
   const [vehicleType, setVehicleType] = useState("motorcycle")
   const [showVehicleOptions, setShowVehicleOptions] = useState(false)
+  const [whoPays, setWhoPays] = useState("sender")
+  const [showWhoPaysOptions, setShowWhoPaysOptions] = useState(false)
 
   // Form state
   const [packageDescription, setPackageDescription] = useState("")
@@ -254,6 +256,68 @@ export default function PackageDeliveryPage() {
                 onChange={(e) => setSenderPhone(e.target.value)}
                 className="mt-3 bg-background"
               />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold text-foreground mb-4">{t("who-pays", "Qui paie?", "من يدفع؟")}</h2>
+
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <button
+                onClick={() => setShowWhoPaysOptions(!showWhoPaysOptions)}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="text-left">
+                  <p className="font-semibold text-foreground">
+                    {whoPays === "sender"
+                      ? t("sender-pays", "L'expéditeur paie", "المرسل يدفع")
+                      : t("receiver-pays", "Le destinataire paie", "المستقبل يدفع")}
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground transition-transform ${showWhoPaysOptions ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showWhoPaysOptions && (
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={() => {
+                      setWhoPays("sender")
+                      setShowWhoPaysOptions(false)
+                    }}
+                    className={`w-full p-3 rounded-lg border-2 text-left transition-colors ${
+                      whoPays === "sender" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <p className="font-semibold text-foreground">
+                      {t("sender-pays", "L'expéditeur paie", "المرسل يدفع")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("sender-pays-desc", "Vous payez les frais de livraison", "أنت تدفع رسوم التوصيل")}
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setWhoPays("receiver")
+                      setShowWhoPaysOptions(false)
+                    }}
+                    className={`w-full p-3 rounded-lg border-2 text-left transition-colors ${
+                      whoPays === "receiver" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <p className="font-semibold text-foreground">
+                      {t("receiver-pays", "Le destinataire paie", "المستقبل يدفع")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("receiver-pays-desc", "Le destinataire paie à la livraison", "المستقبل يدفع عند الاستلام")}
+                    </p>
+                  </button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -493,7 +557,48 @@ export default function PackageDeliveryPage() {
         </div>
 
         {/* Pay Button */}
-        <Button size="lg" className="w-full bg-black hover:bg-black/90 text-white font-bold py-6 rounded-full text-lg">
+        <Button
+          size="lg"
+          className="w-full bg-black hover:bg-black/90 text-white font-bold py-6 rounded-full text-lg"
+          onClick={async () => {
+            if (!fromLocation || !toLocation || !recipientPhone || !senderPhone) {
+              alert(t("fill-all", "Veuillez remplir tous les champs", "يرجى ملء جميع الحقول"))
+              return
+            }
+
+            try {
+              const response = await fetch("/api/package-delivery/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  customerId: "customer-1",
+                  fromLocation,
+                  toLocation,
+                  packageDescription,
+                  recipientName,
+                  recipientPhone,
+                  senderPhone,
+                  vehicleType,
+                  paymentMethod,
+                  whoPays,
+                  deliveryOption,
+                  total: serviceFee,
+                }),
+              })
+
+              const data = await response.json()
+              if (data.success) {
+                alert(t("delivery-created", "Livraison créée avec succès!", "تم إنشاء التوصيل بنجاح!"))
+                router.push("/")
+              } else {
+                alert(t("error", "Erreur lors de la création", "خطأ في الإنشاء"))
+              }
+            } catch (error) {
+              console.error("[v0] Error creating delivery:", error)
+              alert(t("error", "Erreur lors de la création", "خطأ في الإنشاء"))
+            }
+          }}
+        >
           {paymentMethod === "google-pay" ? (
             <div className="flex items-center gap-2">
               <span>{t("pay-with", "Payer avec", "ادفع مع")}</span>

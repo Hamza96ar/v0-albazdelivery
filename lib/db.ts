@@ -22,6 +22,17 @@ import type {
   VendorReview,
   VendorPerformance,
   VendorResponse,
+  Conversation,
+  ChatMessage,
+  SupportTicket,
+  TicketStatus,
+  ChatParticipantRole,
+  DeliveryRoute,
+  DeliveryZone,
+  DriverPerformance,
+  Notification,
+  DriverLocation,
+  PaymentMethod,
 } from "./types"
 
 // In-memory database (replace with real database in production)
@@ -47,6 +58,14 @@ class Database {
   private vendorReviews: Map<string, VendorReview> = new Map()
   private vendorPerformance: Map<string, VendorPerformance> = new Map()
   private vendorResponses: Map<string, VendorResponse> = new Map()
+  private conversations: Map<string, Conversation> = new Map()
+  private chatMessages: Map<string, ChatMessage> = new Map()
+  private supportTickets: Map<string, SupportTicket> = new Map()
+  private deliveryRoutes: Map<string, DeliveryRoute> = new Map()
+  private deliveryZones: Map<string, DeliveryZone> = new Map()
+  private driverPerformance: Map<string, DriverPerformance> = new Map()
+  private notifications: Map<string, Notification> = new Map()
+  private driverLocations: Map<string, DriverLocation> = new Map()
 
   // Orders
   createOrder(order: Order): Order {
@@ -100,6 +119,18 @@ class Database {
 
     this.orders.set(id, order)
     return order
+  }
+
+  getScheduledOrders(date: Date): Order[] {
+    return Array.from(this.orders.values()).filter((order) => {
+      if (!order.scheduledDate) return false
+      const orderDate = new Date(order.scheduledDate)
+      return orderDate.toDateString() === date.toDateString()
+    })
+  }
+
+  getOrdersByPaymentMethod(method: PaymentMethod): Order[] {
+    return Array.from(this.orders.values()).filter((order) => order.paymentMethod === method)
   }
 
   assignDriver(orderId: string, driverId: string): Order | undefined {
@@ -672,6 +703,246 @@ class Database {
   getReviewResponses(reviewId: string): VendorResponse[] {
     return Array.from(this.vendorResponses.values()).filter((r) => r.reviewId === reviewId)
   }
+
+  // Conversations
+  createConversation(conversation: Conversation): Conversation {
+    this.conversations.set(conversation.id, conversation)
+    return conversation
+  }
+
+  getConversation(id: string): Conversation | undefined {
+    return this.conversations.get(id)
+  }
+
+  getConversationsByUser(userId: string): Conversation[] {
+    return Array.from(this.conversations.values()).filter((c) => c.participantIds.includes(userId))
+  }
+
+  getOrCreateConversation(
+    participantIds: string[],
+    participantRoles: ChatParticipantRole[],
+    type: Conversation["type"],
+    orderId?: string,
+  ): Conversation {
+    const existing = Array.from(this.conversations.values()).find(
+      (c) =>
+        c.type === type &&
+        c.participantIds.length === participantIds.length &&
+        c.participantIds.every((id) => participantIds.includes(id)),
+    )
+
+    if (existing) return existing
+
+    const conversation: Conversation = {
+      id: `conv-${Date.now()}`,
+      participantIds,
+      participantRoles,
+      type,
+      relatedOrderId: orderId,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    return this.createConversation(conversation)
+  }
+
+  // Chat Messages
+  createChatMessage(message: ChatMessage): ChatMessage {
+    this.chatMessages.set(message.id, message)
+
+    // Update conversation last message
+    const conversation = this.conversations.get(message.conversationId)
+    if (conversation) {
+      conversation.lastMessage = message.message
+      conversation.lastMessageTime = message.createdAt
+      conversation.updatedAt = new Date()
+      this.conversations.set(message.conversationId, conversation)
+    }
+
+    return message
+  }
+
+  getChatMessages(conversationId: string, limit = 50): ChatMessage[] {
+    return Array.from(this.chatMessages.values())
+      .filter((m) => m.conversationId === conversationId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(-limit)
+  }
+
+  markMessagesAsRead(conversationId: string, userId: string): void {
+    Array.from(this.chatMessages.values())
+      .filter((m) => m.conversationId === conversationId && m.senderId !== userId && !m.isRead)
+      .forEach((m) => {
+        m.isRead = true
+        this.chatMessages.set(m.id, m)
+      })
+  }
+
+  // Support Tickets
+  createSupportTicket(ticket: SupportTicket): SupportTicket {
+    this.supportTickets.set(ticket.id, ticket)
+    return ticket
+  }
+
+  getSupportTicket(id: string): SupportTicket | undefined {
+    return this.supportTickets.get(id)
+  }
+
+  getSupportTicketsByCustomer(customerId: string): SupportTicket[] {
+    return Array.from(this.supportTickets.values()).filter((t) => t.customerId === customerId)
+  }
+
+  getOpenSupportTickets(): SupportTicket[] {
+    return Array.from(this.supportTickets.values()).filter((t) => t.status !== "closed")
+  }
+
+  updateSupportTicketStatus(id: string, status: TicketStatus, assignedTo?: string): SupportTicket | undefined {
+    const ticket = this.supportTickets.get(id)
+    if (!ticket) return undefined
+
+    ticket.status = status
+    ticket.updatedAt = new Date()
+    if (assignedTo) ticket.assignedTo = assignedTo
+    if (status === "resolved") ticket.resolvedAt = new Date()
+
+    this.supportTickets.set(id, ticket)
+    return ticket
+  }
+
+  addMessageToTicket(ticketId: string, message: ChatMessage): SupportTicket | undefined {
+    const ticket = this.supportTickets.get(ticketId)
+    if (!ticket) return undefined
+
+    ticket.messages.push(message)
+    ticket.updatedAt = new Date()
+    this.supportTickets.set(ticketId, ticket)
+    return ticket
+  }
+
+  // Delivery Routes
+  createDeliveryRoute(route: DeliveryRoute): DeliveryRoute {
+    this.deliveryRoutes.set(route.id, route)
+    return route
+  }
+
+  getDeliveryRoute(id: string): DeliveryRoute | undefined {
+    return this.deliveryRoutes.get(id)
+  }
+
+  getDriverRoutes(driverId: string): DeliveryRoute[] {
+    return Array.from(this.deliveryRoutes.values()).filter((r) => r.driverId === driverId)
+  }
+
+  updateRouteStatus(id: string, status: "planned" | "in_progress" | "completed"): DeliveryRoute | undefined {
+    const route = this.deliveryRoutes.get(id)
+    if (!route) return undefined
+    route.status = status
+    if (status === "completed") route.completedAt = new Date()
+    this.deliveryRoutes.set(id, route)
+    return route
+  }
+
+  // Delivery Zones
+  createDeliveryZone(zone: DeliveryZone): DeliveryZone {
+    this.deliveryZones.set(zone.id, zone)
+    return zone
+  }
+
+  getDeliveryZone(id: string): DeliveryZone | undefined {
+    return this.deliveryZones.get(id)
+  }
+
+  getDeliveryZonesByCity(city: string): DeliveryZone[] {
+    return Array.from(this.deliveryZones.values()).filter((z) => z.city === city)
+  }
+
+  getAllDeliveryZones(): DeliveryZone[] {
+    return Array.from(this.deliveryZones.values())
+  }
+
+  updateZoneActiveDrivers(zoneId: string, count: number): DeliveryZone | undefined {
+    const zone = this.deliveryZones.get(zoneId)
+    if (!zone) return undefined
+    zone.activeDrivers = count
+    return zone
+  }
+
+  // Driver Performance
+  createDriverPerformance(performance: DriverPerformance): DriverPerformance {
+    this.driverPerformance.set(performance.driverId, performance)
+    return performance
+  }
+
+  getDriverPerformance(driverId: string): DriverPerformance | undefined {
+    return this.driverPerformance.get(driverId)
+  }
+
+  updateDriverPerformance(driverId: string, updates: Partial<DriverPerformance>): DriverPerformance | undefined {
+    const performance = this.driverPerformance.get(driverId)
+    if (!performance) return undefined
+    const updated = { ...performance, ...updates, updatedAt: new Date() }
+    this.driverPerformance.set(driverId, updated)
+    return updated
+  }
+
+  getTopPerformingDrivers(limit = 10): DriverPerformance[] {
+    return Array.from(this.driverPerformance.values())
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, limit)
+  }
+
+  // Notifications
+  createNotification(notification: Notification): Notification {
+    this.notifications.set(notification.id, notification)
+    return notification
+  }
+
+  getNotifications(userId: string): Notification[] {
+    return Array.from(this.notifications.values())
+      .filter((n) => n.recipientId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
+  markNotificationAsRead(id: string): Notification | undefined {
+    const notification = this.notifications.get(id)
+    if (!notification) return undefined
+    notification.isRead = true
+    notification.readAt = new Date()
+    this.notifications.set(id, notification)
+    return notification
+  }
+
+  // Driver Location Tracking
+  updateDriverLocation(driverId: string, location: DriverLocation): DriverLocation {
+    this.driverLocations.set(driverId, { ...location, updatedAt: new Date() })
+    return this.driverLocations.get(driverId)!
+  }
+
+  getDriverLocation(driverId: string): DriverLocation | undefined {
+    return this.driverLocations.get(driverId)
+  }
+
+  getNearbyDrivers(lat: number, lng: number, radiusKm = 5): DriverLocation[] {
+    return Array.from(this.driverLocations.values()).filter((loc) => {
+      const distance = Math.sqrt(Math.pow(loc.latitude - lat, 2) + Math.pow(loc.longitude - lng, 2)) * 111
+      return distance <= radiusKm
+    })
+  }
+
+  getAvailableDriversInZone(zoneId: string): DriverLocation[] {
+    const zone = this.deliveryZones.get(zoneId)
+    if (!zone) return []
+
+    return Array.from(this.driverLocations.values()).filter((loc) => {
+      // Check if driver is within zone coordinates
+      const isInZone = zone.coordinates.some((coord) => {
+        const distance = Math.sqrt(Math.pow(loc.latitude - coord.lat, 2) + Math.pow(loc.longitude - coord.lng, 2)) * 111
+        return distance <= 2 // Within 2km of zone
+      })
+      return isInZone
+    })
+  }
 }
 
 // Singleton instance
@@ -797,6 +1068,3 @@ export function initializeMockData() {
 
   products.forEach((product) => db.createProduct(product))
 }
-
-// Initialize mock data on module load
-initializeMockData()

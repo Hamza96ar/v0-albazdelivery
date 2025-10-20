@@ -17,6 +17,10 @@ export type PaymentStatus = "pending" | "completed" | "failed" | "refunded"
 
 export type MembershipTier = "bronze" | "silver" | "gold" | "platinum"
 
+export type ChatParticipantRole = "customer" | "vendor" | "driver" | "admin"
+export type TicketStatus = "open" | "in_progress" | "resolved" | "closed"
+export type TicketPriority = "low" | "medium" | "high" | "urgent"
+
 export interface User {
   id: string
   name: string
@@ -82,7 +86,7 @@ export interface Order {
   deliveryFee: number
   total: number
   status: OrderStatus
-  paymentMethod: "cash" | "card"
+  paymentMethod: PaymentMethod
   deliveryAddress: string
   city: string
   customerPhone: string
@@ -94,6 +98,13 @@ export interface Order {
   readyAt?: Date
   assignedAt?: Date
   deliveredAt?: Date
+  scheduledDate?: Date
+  scheduledTime?: string
+  whoPays?: "customer" | "receiver"
+  packageDescription?: string
+  recipientName?: string
+  recipientPhone?: string
+  isPackageDelivery?: boolean
 }
 
 export interface Delivery {
@@ -312,5 +323,129 @@ export interface VendorResponse {
   reviewId: string
   vendorId: string
   response: string
+  createdAt: Date
+}
+
+export interface ChatMessage {
+  id: string
+  conversationId: string
+  senderId: string
+  senderRole: ChatParticipantRole
+  senderName: string
+  message: string
+  attachments?: string[]
+  isRead: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Conversation {
+  id: string
+  participantIds: string[]
+  participantRoles: ChatParticipantRole[]
+  type: "customer_vendor" | "customer_driver" | "customer_admin" | "vendor_admin"
+  relatedOrderId?: string
+  lastMessage?: string
+  lastMessageTime?: Date
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface SupportTicket {
+  id: string
+  customerId: string
+  subject: string
+  description: string
+  category: "order" | "delivery" | "payment" | "account" | "other"
+  priority: TicketPriority
+  status: TicketStatus
+  assignedTo?: string
+  messages: ChatMessage[]
+  createdAt: Date
+  updatedAt: Date
+  resolvedAt?: Date
+}
+
+export interface ChatBot {
+  id: string
+  name: string
+  role: "faq" | "order_tracking" | "general_support"
+  responses: Map<string, string>
+}
+
+export interface DeliveryRoute {
+  id: string
+  driverId: string
+  deliveries: string[] // order IDs
+  optimizedSequence: string[]
+  totalDistance: number
+  estimatedTime: number // in minutes
+  status: "planned" | "in_progress" | "completed"
+  createdAt: Date
+  completedAt?: Date
+}
+
+export interface DeliveryZone {
+  id: string
+  name: string
+  city: string
+  coordinates: { lat: number; lng: number }[]
+  deliveryFee: number
+  estimatedTime: number // in minutes
+  activeDrivers: number
+  createdAt: Date
+}
+
+export interface DeliveryPrediction {
+  orderId: string
+  estimatedPickupTime: number // in minutes
+  estimatedDeliveryTime: number // in minutes
+  confidence: number // 0-1
+  factors: string[]
+}
+
+export interface DriverPerformance {
+  driverId: string
+  totalDeliveries: number
+  averageDeliveryTime: number
+  onTimePercentage: number
+  rating: number
+  earnings: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Notification {
+  id: string
+  recipientId: string
+  recipientRole: UserRole
+  type: "order_status" | "delivery_update" | "payment_confirmation" | "loyalty_reward" | "promotion"
+  title: string
+  message: string
+  relatedOrderId?: string
+  relatedDeliveryId?: string
+  actionUrl?: string
+  isRead: boolean
+  createdAt: Date
+  readAt?: Date
+}
+
+export interface DriverLocation {
+  driverId: string
+  latitude: number
+  longitude: number
+  accuracy: number
+  heading: number
+  speed: number
+  updatedAt: Date
+}
+
+export interface ScheduledDelivery {
+  id: string
+  orderId: string
+  scheduledDate: Date
+  scheduledTime: string
+  status: "scheduled" | "confirmed" | "cancelled"
   createdAt: Date
 }

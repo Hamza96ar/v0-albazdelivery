@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   UtensilsCrossed,
   ShoppingBag,
-  Pill,
   Home,
   ChevronRight,
   ArrowLeft,
@@ -46,6 +45,7 @@ const categories = [
     nameFr: "Restaurants",
     icon: UtensilsCrossed,
     color: "from-orange-400 to-red-500",
+    customIcon: "/icons/restaurants.jpg",
   },
   {
     id: 2,
@@ -54,24 +54,35 @@ const categories = [
     nameFr: "Épicerie",
     icon: ShoppingBag,
     color: "from-green-400 to-emerald-500",
+    customIcon: "/icons/groceries.jpg",
   },
   {
     id: 3,
-    name: "Parapharm",
-    nameAr: "صيدلية",
-    nameFr: "Parapharmacie",
-    icon: Pill,
-    color: "from-blue-400 to-cyan-500",
+    name: "Beauty",
+    nameAr: "جمال",
+    nameFr: "Beauté",
+    icon: Gift,
+    color: "from-pink-400 to-rose-500",
+    customIcon: "/icons/beauty.jpg",
   },
   {
     id: 4,
+    name: "Gifts",
+    nameAr: "هدايا",
+    nameFr: "Cadeaux",
+    icon: Gift,
+    color: "from-purple-400 to-pink-500",
+    customIcon: "/icons/gifts.jpg",
+  },
+  {
+    id: 5,
     name: "Package",
     nameAr: "طرود",
     nameFr: "Livraison de colis",
     icon: Package,
-    color: "from-purple-400 to-pink-500",
+    color: "from-blue-400 to-cyan-500",
+    customIcon: "/icons/package-delivery.jpg",
   },
-  { id: 5, name: "Gifts", nameAr: "هدايا", nameFr: "Cadeaux", icon: Gift, color: "from-pink-400 to-rose-500" },
 ]
 
 // Mock data for stores
@@ -403,13 +414,12 @@ export default function AlBazApp() {
       <div className="px-4 py-8">
         <div className="grid grid-cols-3 gap-6 max-w-md mx-auto">
           {categories.map((category) => {
-            const Icon = category.icon
             const categoryName = selectedLanguage === "ar" ? category.nameAr : category.nameFr
             return (
               <button
                 key={category.id}
                 onClick={() => {
-                  if (category.id === 4) {
+                  if (category.id === 5) {
                     router.push("/package-delivery")
                   } else {
                     setSelectedCategory(category.id)
@@ -419,12 +429,13 @@ export default function AlBazApp() {
                 className="flex flex-col items-center gap-3 group"
               >
                 <div
-                  className={`w-20 h-20 rounded-full bg-gradient-to-br ${category.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 animate-spin-slow`}
-                  style={{
-                    animation: "spin 20s linear infinite",
-                  }}
+                  className={`w-20 h-20 rounded-full bg-gradient-to-br ${category.color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 overflow-hidden`}
                 >
-                  <Icon className="w-10 h-10 text-white" />
+                  <img
+                    src={category.customIcon || "/placeholder.svg"}
+                    alt={categoryName}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <span className="text-sm font-medium text-center text-foreground">{categoryName}</span>
               </button>
@@ -474,6 +485,234 @@ export default function AlBazApp() {
       </div>
     </div>
   )
+
+  const MyOrdersView = () => {
+    const [packageDeliveries, setPackageDeliveries] = useState<Order[]>([])
+    const [allOrders, setAllOrders] = useState<Order[]>([])
+    const [loadingOrders, setLoadingOrders] = useState(false)
+    const [activeTab, setActiveTab] = useState<"orders" | "packages" | "track">("orders")
+
+    useEffect(() => {
+      const fetchOrders = async () => {
+        setLoadingOrders(true)
+        try {
+          const response = await fetch(`/api/orders?customerId=${customerId}`)
+          const data = await response.json()
+          if (data.success) {
+            const orders = data.orders || []
+            setAllOrders(orders.filter((o: Order) => !o.isPackageDelivery))
+            setPackageDeliveries(orders.filter((o: Order) => o.isPackageDelivery))
+          }
+        } catch (error) {
+          console.error("[v0] Error fetching orders:", error)
+        } finally {
+          setLoadingOrders(false)
+        }
+      }
+
+      fetchOrders()
+    }, [customerId])
+
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        {/* Header */}
+        <div className="sticky top-[57px] z-40 bg-background border-b border-border px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentPage("home")} className="hover:bg-muted">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-lg font-bold text-foreground">{t("my-orders", "Mes Commandes", "طلباتي")}</h1>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="sticky top-[105px] z-30 bg-background border-b border-border px-4 py-3 flex gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-colors ${
+              activeTab === "orders"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {t("orders", "Commandes", "الطلبات")}
+          </button>
+          <button
+            onClick={() => setActiveTab("packages")}
+            className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-colors ${
+              activeTab === "packages"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {t("my-packages", "Mes Colis", "حزمي")}
+          </button>
+          <button
+            onClick={() => setActiveTab("track")}
+            className={`px-4 py-2 rounded-full whitespace-nowrap font-medium transition-colors ${
+              activeTab === "track"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {t("track-order", "Suivre Commande", "تتبع الطلب")}
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 py-6">
+          {/* Orders Tab */}
+          {activeTab === "orders" && (
+            <div>
+              <h2 className="text-lg font-bold mb-4 text-foreground">{t("orders", "Commandes", "الطلبات")}</h2>
+              {allOrders.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-muted-foreground">{t("no-orders", "Aucune commande", "لا توجد طلبات")}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {allOrders.map((order) => (
+                    <Card
+                      key={order.id}
+                      className="border-border hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        setOrderId(order.id)
+                        setCurrentOrder(order)
+                        setCurrentPage("tracking")
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge
+                                className={
+                                  order.status === "delivered"
+                                    ? "bg-green-500"
+                                    : order.status === "in_delivery"
+                                      ? "bg-blue-500"
+                                      : "bg-yellow-500"
+                                }
+                              >
+                                {order.status === "delivered"
+                                  ? t("delivered", "Livrée", "تم التوصيل")
+                                  : order.status === "in_delivery"
+                                    ? t("in-delivery", "En Livraison", "قيد التوصيل")
+                                    : t("pending", "En Attente", "قيد الانتظار")}
+                              </Badge>
+                              <span className="text-sm font-mono text-muted-foreground">#{order.id}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(order.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-primary">{order.total} DZD</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Packages Tab */}
+          {activeTab === "packages" && (
+            <div>
+              <h2 className="text-lg font-bold mb-4 text-foreground">{t("my-packages", "Mes Colis", "حزمي")}</h2>
+              {packageDeliveries.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-muted-foreground">{t("no-packages", "Aucun colis", "لا توجد حزم")}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {packageDeliveries.map((pkg) => (
+                    <Card
+                      key={pkg.id}
+                      className="border-border hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        setOrderId(pkg.id)
+                        setCurrentOrder(pkg)
+                        setCurrentPage("tracking")
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge
+                                className={
+                                  pkg.status === "delivered"
+                                    ? "bg-green-500"
+                                    : pkg.status === "in_delivery"
+                                      ? "bg-blue-500"
+                                      : "bg-yellow-500"
+                                }
+                              >
+                                {pkg.status === "delivered"
+                                  ? t("delivered", "Livrée", "تم التوصيل")
+                                  : pkg.status === "in_delivery"
+                                    ? t("in-delivery", "En Livraison", "قيد التوصيل")
+                                    : t("pending", "En Attente", "قيد الانتظار")}
+                              </Badge>
+                              <span className="text-sm font-mono text-muted-foreground">#{pkg.id}</span>
+                            </div>
+                            <p className="font-semibold text-foreground mb-1">{pkg.packageDescription}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {t("to", "Vers", "إلى")}: {pkg.recipientName}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-primary">{pkg.total} DZD</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Track Order Tab */}
+          {activeTab === "track" && (
+            <div>
+              <h2 className="text-lg font-bold mb-4 text-foreground">
+                {t("track-order", "Suivre Commande", "تتبع الطلب")}
+              </h2>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        {t("enter-order-id", "Entrez le numéro de commande", "أدخل رقم الطلب")}
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder={t("order-id-placeholder", "Ex: ORD-123456", "مثال: ORD-123456")}
+                        className="bg-muted border-border"
+                      />
+                    </div>
+                    <Button className="w-full bg-gradient-to-r from-primary to-orange-500 hover:from-primary/90 hover:to-orange-500/90 text-primary-foreground font-bold py-6 rounded-full">
+                      {t("track", "Suivre", "تتبع")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   const CategoryView = () => {
     const category = categories.find((c) => c.id === selectedCategory)
@@ -1274,6 +1513,15 @@ export default function AlBazApp() {
               {cartItemCount}
             </span>
           )}
+          <span className="text-xs font-medium">{t("cart", "Panier", "السلة")}</span>
+        </button>
+        <button
+          onClick={() => setCurrentPage("orders")}
+          className={`flex flex-col items-center gap-1 py-1 transition-colors ${
+            currentPage === "orders" ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <Package className="w-6 h-6" />
           <span className="text-xs font-medium">{t("orders", "Commandes", "الطلبات")}</span>
         </button>
         <button
@@ -1299,6 +1547,7 @@ export default function AlBazApp() {
         {currentPage === "store" && <StoreView />}
         {currentPage === "checkout" && <CheckoutView />}
         {currentPage === "tracking" && <TrackingView />}
+        {currentPage === "orders" && <MyOrdersView />}
         {currentPage === "profile" && <ProfileView />}
       </main>
       <BottomNav />
